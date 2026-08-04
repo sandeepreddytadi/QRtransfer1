@@ -5,11 +5,12 @@ class QRSender {
     this.frames          = [];   // pre-rendered canvases
     this.frameIdx        = 0;
     this.cycleNum        = 1;
-    this.fps             = 10;
+    this.fps             = 60;
     this.paused          = false;
     this.rafHandle       = null;
     this.lastAdvanceTime = 0;
     this.totalFrames     = 0;
+    this.chunkBytes      = QRFT.CHUNK_BYTES;
     this.session         = '';
     this.qrSize          = 480;
     this.startTime       = null;
@@ -72,18 +73,29 @@ class QRSender {
         }
       }
 
-      const CHUNK = QRFT.CHUNK_BYTES;
-      const total = Math.ceil(data.length / CHUNK);
+      const meta = { name: file.name, size: file.size, comp: compressed, mime: file.type || 'application/octet-stream' };
+      const fit = await this._selectChunkForQR(data, meta);
+      const CHUNK = fit.chunkSize;
+      const total = fit.total;
+      this.chunkBytes = CHUNK;
       this.totalFrames = total;
 
-      const meta = { name: file.name, size: file.size, comp: compressed, mime: file.type || 'application/octet-stream' };
+      if (CHUNK !== QRFT.CHUNK_BYTES) {
+        const msg = `Auto chunk ${CHUNK} B (from ${QRFT.CHUNK_BYTES} B) for QR capacity`;
+        const ci = document.getElementById('compressInfo');
+        ci.textContent = ci.textContent ? `${ci.textContent} · ${msg}` : msg;
+      }
 
       for (let i = 0; i < total; i++) {
-        const chunk    = data.slice(i * CHUNK, (i + 1) * CHUNK);
-        const payload  = QRFT.encodeFrame(i, total, this.session, i === 0 ? meta : null, chunk);
-        let   canvas;
-        try   { canvas = await this._makeQR(payload); }
-        catch (e) { throw new Error(`QR gen failed frame ${i}: ${e.message}`); }
+        let canvas;
+        if (i === 0 && fit.firstCanvas) {
+          canvas = fit.firstCanvas;
+        } else {
+          const chunk   = data.slice(i * CHUNK, (i + 1) * CHUNK);
+          const payload = QRFT.encodeFrame(i, total, this.session, i === 0 ? meta : null, chunk);
+          try   { canvas = await this._makeQR(payload); }
+          catch (e) { throw new Error(`QR gen failed frame ${i}: ${e.message}`); }
+        }
         this.frames.push(canvas);
 
         const pct = Math.round((i + 1) / total * 100);
@@ -106,9 +118,33 @@ class QRSender {
   _makeQR(data) {
     return new Promise((ok, fail) => {
       const c = document.createElement('canvas');
-      QRCode.toCanvas(c, data, { errorCorrectionLevel: 'L', margin: 1, width: this.qrSize },
+      QRCode.toCanvas(c, data, { errorCorrectionLevel: 'L', margin: 1, width: this.qrSize, maskPattern: 4 },
         err => err ? fail(err) : ok(c));
     });
+  }
+
+  async _selectChunkForQR(data, meta) {
+    const base = QRFT.CHUNK_BYTES;
+    const candidates = [
+      base, 2000, 1800, 1600, 1500, 1400, 1300, 1200, 1100, 1000, 900, 800, 700, 600, 500, 400
+    ];
+    const tried = new Set();
+
+    for (const c of candidates) {
+      const chunkSize = Math.max(200, Math.min(base, c));
+      if (tried.has(chunkSize)) continue;
+      tried.add(chunkSize);
+
+      const total = Math.ceil(data.length / chunkSize);
+      const firstChunk = data.slice(0, chunkSize);
+      const payload = QRFT.encodeFrame(0, total, this.session, meta, firstChunk);
+      try {
+        const firstCanvas = await this._makeQR(payload);
+        return { chunkSize, total, firstCanvas };
+      } catch {}
+    }
+
+    throw new Error('QR capacity too small for current settings. Reduce chunk size or metadata length.');
   }
 
   _startStream(name, size, total) {
@@ -158,21 +194,18 @@ class QRSender {
     document.getElementById('cycleFill').style.width     = ((idx + 1) / this.totalFrames * 100) + '%';
 
     const elapsed = (performance.now() - this.startTime) / 1000;
-    const kbs     = (QRFT.CHUNK_BYTES * this.fps / 1024).toFixed(1);
+    const kbs     = (this.chunkBytes * this.fps / 1024).toFixed(1);
     const etaSec  = this.totalFrames / this.fps;
     document.getElementById('speedStat').textContent = `~${kbs} KB/s`;
     document.getElementById('etaStat').textContent   = `~${this._fmtSec(etaSec)}`;
     document.getElementById('fpsStat').textContent   = `${this.fps} fps`;
     document.getElementById('elapsedStat').textContent = `${elapsed.toFixed(0)}s`;
 
-    const wrap = document.getElementById('qrWrap');
-    wrap.classList.remove('qr-flash');
-    void wrap.offsetWidth;
-    wrap.classList.add('qr-flash');
+    // Avoid forced reflow every frame; it can significantly reduce effective FPS.
   }
 
   _updateThroughput() {
-    const kbs    = (QRFT.CHUNK_BYTES * this.fps / 1024).toFixed(1);
+    const kbs    = (this.chunkBytes * this.fps / 1024).toFixed(1);
     const etaSec = this.totalFrames / this.fps;
     document.getElementById('throughputInfo').textContent =
       `Session ${this.session} · ~${kbs} KB/s · ETA ~${this._fmtSec(etaSec)}`;

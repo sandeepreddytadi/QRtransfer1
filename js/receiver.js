@@ -1,6 +1,6 @@
 'use strict';
 
-const SCAN_W = 640; // downsample width before jsQR — 4× faster than 1280
+const SCAN_W = 480; // lower decode resolution boosts FPS on mobile while keeping QR readable
 
 class QRReceiver {
   constructor() {
@@ -13,8 +13,9 @@ class QRReceiver {
     this.locked        = false;
     this.videoStream   = null;
     this.meta          = null;
-    this.worker        = null;
-    this.workerBusy    = false;
+    this.workers       = [];
+    this.workerBusy    = [];
+    this.workerCount   = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
     this.transferStart = null;
     this.bytesTotal    = 0;
 
@@ -34,24 +35,40 @@ class QRReceiver {
   }
 
   /* ── Worker init ──────────────────────────────────────────── */
-  async _initWorker() {
+  async _initWorkerPool() {
     try {
       // Fetch the jsQR source so we can run it inside a Blob worker
       const jsqrSrc = await fetch('libs/jsQR.min.js').then(r => r.text());
       const src = jsqrSrc + `
 self.onmessage = function(e) {
   const r = jsQR(new Uint8ClampedArray(e.data.buf), e.data.w, e.data.h,
-                 { inversionAttempts: 'attemptBoth' });
-  self.postMessage(r ? r.data : null);
+                 { inversionAttempts: 'dontInvert' });
+  if (!r) {
+    self.postMessage({ hit: false });
+    return;
+  }
+  self.postMessage({ hit: true, data: r.data });
 };`;
-      const blob  = new Blob([src], { type: 'text/javascript' });
-      this.worker = new Worker(URL.createObjectURL(blob));
-      this.worker.onmessage = e => {
-        this.workerBusy = false;
-        if (e.data) { this.decCount++; this._processFrame(e.data); }
-      };
-      this.worker.onerror = () => { this.worker = null; this.workerBusy = false; };
-    } catch { this.worker = null; }
+      const blob = new Blob([src], { type: 'text/javascript' });
+      const url = URL.createObjectURL(blob);
+      for (let i = 0; i < this.workerCount; i++) {
+        const worker = new Worker(url);
+        this.workers.push(worker);
+        this.workerBusy.push(false);
+        worker.onmessage = (e) => {
+          this.workerBusy[i] = false;
+          this.decCount++;
+          if (e.data?.hit && e.data.data) this._processFrame(e.data.data);
+        };
+        worker.onerror = () => {
+          this.workerBusy[i] = false;
+        };
+      }
+      URL.revokeObjectURL(url);
+    } catch {
+      this.workers = [];
+      this.workerBusy = [];
+    }
   }
 
   /* ── Camera ───────────────────────────────────────────────── */
@@ -65,7 +82,7 @@ self.onmessage = function(e) {
       const v = document.getElementById('video');
       v.srcObject = this.videoStream;
       await v.play();
-      await this._initWorker();
+      await this._initWorkerPool();
       this._setPhase('scanning');
       requestAnimationFrame(ts => this._scanLoop(ts));
     } catch (e) {
@@ -89,17 +106,21 @@ self.onmessage = function(e) {
       if (c.width !== sw)  c.width  = sw;
       if (c.height !== sh) c.height = sh;
 
-      if (!this.workerBusy) {
+      if (this.workers.length) {
+        const slot = this.workerBusy.indexOf(false);
+        if (slot !== -1) {
+          this.scanCtx.drawImage(v, 0, 0, sw, sh);
+          const img = this.scanCtx.getImageData(0, 0, sw, sh);
+          this.workerBusy[slot] = true;
+          this.workers[slot].postMessage({ buf: img.data.buffer, w: sw, h: sh }, [img.data.buffer]);
+        }
+      } else {
+        // Main-thread fallback
         this.scanCtx.drawImage(v, 0, 0, sw, sh);
         const img = this.scanCtx.getImageData(0, 0, sw, sh);
-        if (this.worker) {
-          this.workerBusy = true;
-          this.worker.postMessage({ buf: img.data.buffer, w: sw, h: sh }, [img.data.buffer]);
-        } else {
-          // Main-thread fallback
-          const code = jsQR(img.data, sw, sh, { inversionAttempts: 'attemptBoth' });
-          if (code) { this.decCount++; this._processFrame(code.data); }
-        }
+        this.decCount++;
+        const code = jsQR(img.data, sw, sh, { inversionAttempts: 'dontInvert' });
+        if (code) this._processFrame(code.data);
       }
     }
 
@@ -206,7 +227,9 @@ self.onmessage = function(e) {
   /* ── Finalize: reassemble → decompress → download ─────────── */
   _finalize() {
     this.scanning = false;
-    if (this.worker)      { this.worker.terminate(); this.worker = null; }
+    this.workers.forEach(w => w.terminate());
+    this.workers = [];
+    this.workerBusy = [];
     if (this.videoStream) this.videoStream.getTracks().forEach(t => t.stop());
 
     // Assemble chunks in order
@@ -318,12 +341,17 @@ self.onmessage = function(e) {
 
   _flash() {
     const el = document.getElementById('camFlash');
+    if (!el) return;
     el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
 
   _setPhase(p) {
-    ['idle','scanning','done'].forEach(ph =>
-      document.getElementById(ph + 'Phase').style.display = p === ph ? '' : 'none');
+    const phaseIds = { idle: 'idlePhase', scanning: 'scanPhase', done: 'donePhase' };
+    Object.entries(phaseIds).forEach(([phase, id]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = p === phase ? '' : 'none';
+    });
   }
 
   _showError(msg) {

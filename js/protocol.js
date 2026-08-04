@@ -3,16 +3,6 @@
  */
 'use strict';
 
-// Ignore noisy errors from injected browser content scripts.
-// This does not suppress errors from this app's own files.
-window.addEventListener('error', (ev) => {
-  const src = String(ev.filename || '');
-  const msg = String(ev.message || '');
-  if (src.includes('content_script') && msg.includes("classList")) {
-    ev.preventDefault();
-  }
-});
-
 const QRFT = (() => {
 
   /* ── CRC32 (IEEE 802.3) ──────────────────────────────────────── */
@@ -53,7 +43,7 @@ const QRFT = (() => {
   /* ── Protocol constants ─────────────────────────────────────── */
   const PREFIX      = 'QRFT2';
   const VERSION     = 2;
-  const CHUNK_BYTES = 800; // max bytes of (compressed) data per QR frame
+  const CHUNK_BYTES = 2200; // high-throughput default inspired by decimen-style dense frames
 
   /* ── Frame format ───────────────────────────────────────────────
    * QRFT2|{idx4hex}/{tot4hex}|{session8hex}|{metaB64_or_empty}|{crc8hex}|{dataB64}
