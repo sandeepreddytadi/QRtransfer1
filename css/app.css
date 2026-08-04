@@ -1,0 +1,187 @@
+/* ── Theme ────────────────────────────────────────────────── */
+:root {
+  --bg-base:    #080c14;
+  --bg-card:    #0d1b2e;
+  --bg-card2:   #0c2340;
+  --border:     #1e3a5f;
+  --accent:     #38bdf8;
+  --accent2:    #0369a1;
+  --text-muted: #475569;
+  --text-dim:   #334155;
+}
+
+body {
+  background: var(--bg-base);
+  color: #e2e8f0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+/* ── Cards ───────────────────────────────────────────────── */
+.card-dark {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.card-dark .card-header {
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Drop zone ───────────────────────────────────────────── */
+#dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: var(--bg-card);
+}
+#dropzone.dragover, #dropzone:hover {
+  border-color: var(--accent);
+  background: var(--bg-card2);
+}
+#dropzone .dz-icon { font-size: 3rem; margin-bottom: 12px; display: block; }
+
+/* ── QR display ──────────────────────────────────────────── */
+#qrWrap {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  display: block;
+  width: min(min(75vh, 90vw), 540px);
+  margin: 0 auto;
+  box-shadow: 0 0 40px rgba(56,189,248,.18);
+}
+#qrCanvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+.qr-scan-line {
+  position: absolute;
+  left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg,transparent,rgba(56,189,248,.8),transparent);
+  animation: scanLine 1.6s linear infinite;
+  pointer-events: none;
+}
+@keyframes scanLine { from { top: 0; } to { top: 100%; } }
+.qr-flash::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(56,189,248,.15);
+  border-radius: 12px;
+  animation: flashOut .15s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes flashOut { to { opacity: 0; } }
+
+/* ── Camera viewfinder ───────────────────────────────────── */
+.cam-wrap {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4/3;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.cam-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam-corner {
+  position: absolute; inset: 0; pointer-events: none;
+  border-radius: 16px;
+}
+.cam-corner::before, .cam-corner::after,
+.cam-corner-b::before, .cam-corner-b::after {
+  content: ''; position: absolute;
+  width: 28px; height: 28px;
+  border-color: var(--accent); border-style: solid; z-index: 2;
+}
+.cam-corner::before  { top:10px;    left:10px;  border-width: 3px 0 0 3px; border-radius: 6px 0 0 0; }
+.cam-corner::after   { top:10px;    right:10px; border-width: 3px 3px 0 0; border-radius: 0 6px 0 0; }
+.cam-corner-b        { position: absolute; inset: 0; pointer-events: none; }
+.cam-corner-b::before{ bottom:10px; left:10px;  border-width: 0 0 3px 3px; border-radius: 0 0 0 6px; }
+.cam-corner-b::after { bottom:10px; right:10px; border-width: 0 3px 3px 0; border-radius: 0 0 6px 0; }
+.cam-scan-bar {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation: camScan 2s ease-in-out infinite; z-index: 2;
+}
+@keyframes camScan { 0%,100%{top:15%} 50%{top:85%} }
+.cam-flash-overlay {
+  position: absolute; inset: 0;
+  background: rgba(56,189,248,.2);
+  z-index: 3; opacity: 0; pointer-events: none; border-radius: 16px;
+}
+.cam-flash-overlay.pop { animation: camFlashPop .25s ease-out forwards; }
+@keyframes camFlashPop { 0%{opacity:1} 100%{opacity:0} }
+
+/* ── Frame grid (numbered) ───────────────────────────────── */
+.frame-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.frame-cell {
+  width: 36px; height: 26px;
+  font-size: 9px; line-height: 26px;
+  text-align: center; border-radius: 3px;
+  background: #1e293b; color: #475569;
+  font-family: monospace; font-weight: 600;
+  cursor: default; transition: background .15s;
+  user-select: none;
+}
+/* Compact mode for >200 frames */
+.frame-cell.sm {
+  width: 16px; height: 16px;
+  font-size: 0; line-height: 16px;
+}
+.frame-cell.received   { background: #14532d; color: #4ade80; }
+.frame-cell.crc-fail   { background: #7f1d1d; color: #fca5a5; }
+.frame-cell.in-progress { background: #1e3a5f; color: #38bdf8;
+                           animation: cellPulse .6s ease-in-out infinite alternate; }
+@keyframes cellPulse { from{opacity:.6} to{opacity:1} }
+
+/* ── Stats pills ─────────────────────────────────────────── */
+.stat-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.stat-pill {
+  padding: 3px 10px; border-radius: 99px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  font-size: .7rem; font-family: monospace; color: var(--text-muted);
+  white-space: nowrap;
+}
+.stat-pill.live { color: var(--accent); border-color: var(--accent2); }
+
+/* ── FPS buttons ─────────────────────────────────────────── */
+.fps-btn {
+  padding: 4px 12px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent; color: #64748b;
+  font-size: .78rem; cursor: pointer; transition: all .15s;
+}
+.fps-btn.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+.fps-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+/* ── Progress bar custom ─────────────────────────────────── */
+.progress { background: #1e293b; }
+.progress-bar { transition: width .3s; font-size: .7rem; }
+
+/* ── Misc ────────────────────────────────────────────────── */
+.badge-session {
+  font-family: monospace; letter-spacing: 1px;
+  background: var(--bg-card2); color: var(--accent);
+  border: 1px solid var(--accent2); border-radius: 6px;
+  padding: 2px 8px; font-size: .75rem;
+}
+.text-accent { color: var(--accent); }
+.text-muted-dim { color: var(--text-muted); }
+.border-dark-custom { border-color: var(--border) !important; }
+a.back-link { color: var(--text-muted); text-decoration: none; font-size: .8rem; }
+a.back-link:hover { color: var(--accent); }
