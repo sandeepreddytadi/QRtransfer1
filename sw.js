@@ -1,5 +1,5 @@
 /* Service Worker — caches all app assets for offline use */
-const CACHE  = 'qrft-v1';
+const CACHE  = 'qrft-v3';
 const ASSETS = [
   '/', '/index.html', '/sender.html', '/receiver.html',
   '/css/app.css',
