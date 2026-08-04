@@ -3,6 +3,16 @@
  */
 'use strict';
 
+// Ignore noisy errors from injected browser content scripts.
+// This does not suppress errors from this app's own files.
+window.addEventListener('error', (ev) => {
+  const src = String(ev.filename || '');
+  const msg = String(ev.message || '');
+  if (src.includes('content_script') && msg.includes("classList")) {
+    ev.preventDefault();
+  }
+});
+
 const QRFT = (() => {
 
   /* ── CRC32 (IEEE 802.3) ──────────────────────────────────────── */
