@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QR File Transfer</title>
+  <link rel="stylesheet" href="libs/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+  <link rel="stylesheet" href="css/app.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .hero-btn {
+      display:flex; flex-direction:column; align-items:center; gap:12px;
+      padding:40px 48px; border-radius:20px;
+      border:2px solid var(--border); background:var(--bg-card);
+      color:inherit; text-decoration:none;
+      transition:border-color .2s, background .2s, transform .15s;
+      min-width:160px;
+    }
+    .hero-btn:hover { border-color:var(--accent); background:var(--bg-card2); transform:translateY(-4px); color:inherit; }
+    .hero-btn .icon { font-size:3.2rem; }
+    .hero-btn .label { font-size:1.05rem; font-weight:700; color:#cbd5e1; }
+    .hero-btn .sub { font-size:.72rem; color:var(--text-muted); text-align:center; }
+  </style>
+</head>
+<body>
+<div class="text-center px-4">
+  <h1 class="text-accent mb-1">📡 QR File Transfer</h1>
+  <p class="text-muted mb-5 small">Transfer files between devices with animated QR codes — no network needed</p>
+
+  <div class="d-flex justify-content-center gap-4 flex-wrap mb-5">
+    <a href="sender.html" class="hero-btn">
+      <span class="icon">📤</span>
+      <span class="label">Send</span>
+      <span class="sub">Show QR stream<br>on this device</span>
+    </a>
+    <a href="receiver.html" class="hero-btn">
+      <span class="icon">📷</span>
+      <span class="label">Receive</span>
+      <span class="sub">Scan QR stream<br>with camera</span>
+    </a>
+  </div>
+
+  <div class="text-muted small" style="max-width:360px;margin:0 auto;line-height:1.8">
+    <i class="bi bi-shield-check text-accent me-1"></i>CRC32 integrity per frame<br>
+    <i class="bi bi-archive text-accent me-1"></i>pako compression (optional)<br>
+    <i class="bi bi-wifi-off text-accent me-1"></i>No network required between devices<br>
+    <i class="bi bi-phone text-accent me-1"></i>PWA — install to home screen
+  </div>
+</div>
+<script src="libs/bootstrap.bundle.min.js"></script>
+<script>
+  if ('serviceWorker' in navigator)
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

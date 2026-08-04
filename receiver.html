@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QR Transfer — Receive</title>
+  <link rel="stylesheet" href="libs/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+  <link rel="stylesheet" href="css/app.css"/>
+  <link rel="manifest" href="manifest.json"/>
+</head>
+<body>
+
+<div class="container-fluid px-3 py-3" style="max-width:640px">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 text-accent"><i class="bi bi-qr-code-scan me-2"></i>QR Receiver</h5>
+    <a href="index.html" class="back-link"><i class="bi bi-house-fill me-1"></i>Home</a>
+  </div>
+
+  <!-- Error -->
+  <div id="errorMsg" class="alert alert-danger py-2 mb-3" style="display:none"></div>
+
+  <!-- ── IDLE PHASE ────────────────────────────────────────── -->
+  <div id="idlePhase">
+    <div class="card-dark p-4 text-center mb-3">
+      <div class="mb-3" style="font-size:3.5rem">📷</div>
+      <div class="fw-semibold text-light mb-2">Ready to receive</div>
+      <div class="text-muted small mb-4 lh-lg">
+        Tap <strong>Open Camera</strong>, then point it at the<br>
+        animated QR stream on the sender's screen.<br>
+        The file downloads automatically when complete.
+      </div>
+      <button id="startBtn" class="btn btn-info btn-lg px-5">
+        <i class="bi bi-camera-video-fill me-2"></i>Open Camera
+      </button>
+    </div>
+    <div class="card-dark p-3 text-muted small">
+      <i class="bi bi-shield-check me-2 text-accent"></i>
+      Each frame is verified with <strong>CRC32</strong>. Corrupt frames are
+      automatically re-requested on the next sender cycle.
+    </div>
+  </div>
+
+  <!-- ── SCANNING PHASE ────────────────────────────────────── -->
+  <div id="scanPhase" style="display:none">
+
+    <!-- Camera -->
+    <div class="cam-wrap mb-3">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="scanCanvas" style="display:none"></canvas>
+      <div class="cam-corner"></div>
+      <div class="cam-corner-b"></div>
+      <div class="cam-scan-bar"></div>
+      <div class="cam-flash-overlay" id="camFlash"></div>
+    </div>
+
+    <!-- Lock status -->
+    <div id="lockStatus" class="alert alert-secondary py-2 mb-2">
+      <i class="bi bi-search me-2"></i>Waiting for QR stream…
+    </div>
+
+    <!-- File info (shown after lock) -->
+    <div class="d-flex gap-3 text-muted small mb-2">
+      <span><i class="bi bi-file-earmark me-1 text-accent"></i><span id="rxFileName">—</span></span>
+      <span id="rxFileSize"></span>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress mb-2" style="height:22px">
+      <div id="progressBar" class="progress-bar bg-success progress-bar-striped"
+           style="width:0%">0%</div>
+    </div>
+
+    <!-- Frame counts -->
+    <div class="d-flex gap-3 text-muted small mb-3">
+      <span><i class="bi bi-check-circle-fill text-success me-1"></i>
+        <span id="receivedCount">0</span> received</span>
+      <span><i class="bi bi-exclamation-circle text-warning me-1"></i>
+        <span id="missingCount">—</span> missing</span>
+      <span><i class="bi bi-x-circle text-danger me-1"></i>
+        <span id="crcFailCount">0</span> CRC fail</span>
+      <span class="ms-auto text-muted">Total: <span id="totalFramesCount">—</span></span>
+    </div>
+
+    <!-- Stats pills -->
+    <div class="stat-pills mb-3">
+      <span class="stat-pill" id="pillCap">📷 —/s</span>
+      <span class="stat-pill" id="pillDec">🔍 —/s</span>
+      <span class="stat-pill" id="pillSpeed">⚡ —</span>
+      <span class="stat-pill" id="pillEta">⏱ —</span>
+      <span class="stat-pill" id="pillSenderFps">📡 — fps</span>
+    </div>
+
+    <!-- Numbered frame grid -->
+    <div class="card-dark p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="small fw-semibold text-light">Frame coverage</span>
+        <span class="small text-muted">
+          <span class="frame-cell received d-inline-flex align-items-center justify-content-center me-1"
+                style="width:14px;height:14px;border-radius:2px;font-size:0"></span>received
+          <span class="frame-cell crc-fail d-inline-flex align-items-center justify-content-center ms-2 me-1"
+                style="width:14px;height:14px;border-radius:2px;font-size:0"></span>CRC fail
+        </span>
+      </div>
+      <div id="frameGrid" class="frame-grid"></div>
+    </div>
+
+  </div><!-- /scan -->
+
+  <!-- ── DONE PHASE ─────────────────────────────────────────── -->
+  <div id="donePhase" style="display:none">
+    <div class="card-dark p-4 text-center">
+      <div class="mb-3" style="font-size:3.5rem">✅</div>
+      <h5 class="text-success mb-2">Transfer Complete!</h5>
+      <div class="text-muted small mb-4" id="doneDetails">Saving file…</div>
+      <button id="tryAgainBtn" class="btn btn-outline-info">
+        <i class="bi bi-arrow-counterclockwise me-2"></i>Receive Another File
+      </button>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script src="libs/jsQR.min.js"></script>
+<script src="libs/pako.min.js"></script>
+<script src="js/protocol.js"></script>
+<script src="js/receiver.js"></script>
+</body>
+</html>

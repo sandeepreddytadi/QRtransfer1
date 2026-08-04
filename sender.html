@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QR Transfer — Send</title>
+  <link rel="stylesheet" href="libs/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+  <link rel="stylesheet" href="css/app.css"/>
+  <link rel="manifest" href="manifest.json"/>
+</head>
+<body>
+
+<div class="container-fluid px-3 py-3" style="max-width:640px">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 text-accent"><i class="bi bi-upload me-2"></i>QR Sender</h5>
+    <a href="index.html" class="back-link"><i class="bi bi-house-fill me-1"></i>Home</a>
+  </div>
+
+  <!-- Error -->
+  <div id="errorMsg" class="alert alert-danger py-2 mb-3" style="display:none"></div>
+
+  <!-- ── IDLE PHASE ────────────────────────────────────────── -->
+  <div id="idlePhase">
+    <div id="dropzone" class="mb-3">
+      <span class="dz-icon">📂</span>
+      <div class="fw-semibold text-light mb-1">Drop a file here or click to browse</div>
+      <div class="text-muted small">PDF · Images · ZIP · Video · APK · DOCX · XLSX — up to 500 MB</div>
+      <input type="file" id="fileInput" style="display:none"/>
+    </div>
+
+    <div class="card-dark p-3 mb-3">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="compressCheck" checked/>
+        <label class="form-check-label text-muted small" for="compressCheck">
+          Compress with pako (recommended for text/office files)
+        </label>
+      </div>
+    </div>
+
+    <div class="card-dark p-3 text-muted small">
+      <i class="bi bi-info-circle me-2 text-accent"></i>
+      Open <strong>Receive</strong> on the other device, then drop a file here.
+      The QR stream loops until the receiver has all frames.
+    </div>
+  </div>
+
+  <!-- ── GENERATING PHASE ───────────────────────────────────── -->
+  <div id="generatingPhase" style="display:none">
+    <div class="card-dark p-4 text-center">
+      <div class="mb-2 text-accent"><i class="bi bi-gear-wide-connected fs-2"></i></div>
+      <div class="fw-semibold mb-1" id="genFileName">…</div>
+      <div class="text-muted small mb-3" id="genFileSize"></div>
+      <div class="progress mb-2" style="height:20px">
+        <div id="genFill" class="progress-bar bg-info progress-bar-striped progress-bar-animated"
+             style="width:0%">0%</div>
+      </div>
+      <div class="text-muted small" id="genStatus">Building QR frames…</div>
+      <div class="text-muted small mt-1" id="compressInfo"></div>
+    </div>
+  </div>
+
+  <!-- ── STREAMING PHASE ───────────────────────────────────── -->
+  <div id="streamingPhase" style="display:none">
+
+    <!-- File info -->
+    <div class="d-flex gap-3 align-items-center mb-3 text-muted small">
+      <span><i class="bi bi-file-earmark me-1 text-accent"></i><span id="streamName">…</span></span>
+      <span id="streamSize"></span>
+      <span><span id="streamTotal"></span> frames</span>
+      <span class="badge-session" id="sessionBadge">……</span>
+    </div>
+
+    <!-- QR Canvas -->
+    <div id="qrWrap" class="mb-3">
+      <canvas id="qrCanvas"></canvas>
+      <div class="qr-scan-line"></div>
+    </div>
+
+    <!-- Frame counter + cycle -->
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <span class="text-accent fw-bold font-monospace fs-5" id="frameCounter">0 / 0</span>
+      <span class="text-muted small" id="cycleCounter">Cycle 1</span>
+    </div>
+
+    <!-- Cycle progress bar -->
+    <div class="progress mb-3" style="height:4px">
+      <div id="cycleFill" class="progress-bar bg-info" style="width:0%;transition:none"></div>
+    </div>
+
+    <!-- Throughput info -->
+    <div class="text-muted small font-monospace mb-3" id="throughputInfo"></div>
+
+    <!-- Stats row -->
+    <div class="stat-pills mb-3">
+      <span class="stat-pill"><i class="bi bi-lightning-fill"></i> <span id="speedStat">—</span></span>
+      <span class="stat-pill"><i class="bi bi-hourglass-split"></i> <span id="etaStat">—</span></span>
+      <span class="stat-pill"><i class="bi bi-camera-video"></i> <span id="fpsStat">—</span></span>
+      <span class="stat-pill"><i class="bi bi-clock"></i> <span id="elapsedStat">0s</span></span>
+    </div>
+
+    <!-- FPS controls -->
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+      <span class="text-muted small me-1">Speed:</span>
+      <button class="fps-btn"        data-fps="1">1 fps</button>
+      <button class="fps-btn"        data-fps="3">3 fps</button>
+      <button class="fps-btn active" data-fps="10">10 fps</button>
+      <button class="fps-btn"        data-fps="30">30 fps</button>
+      <button class="fps-btn"        data-fps="60">60 fps</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="d-flex gap-2">
+      <button id="pauseBtn" class="btn btn-outline-info flex-fill">
+        <i class="bi bi-pause-fill"></i> Pause
+      </button>
+      <button id="restartBtn" class="btn btn-outline-secondary flex-fill">
+        <i class="bi bi-arrow-counterclockwise"></i> New File
+      </button>
+    </div>
+
+  </div><!-- /streaming -->
+</div><!-- /container -->
+
+<script src="libs/qrcode.min.js"></script>
+<script src="libs/pako.min.js"></script>
+<script src="js/protocol.js"></script>
+<script src="js/sender.js"></script>
+</body>
+</html>

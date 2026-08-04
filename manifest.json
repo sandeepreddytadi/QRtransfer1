@@ -1,0 +1,14 @@
+{
+  "name": "QR File Transfer",
+  "short_name": "QR Transfer",
+  "description": "Transfer files between devices using animated QR codes — no network needed",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080c14",
+  "theme_color": "#38bdf8",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>",
+      "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
